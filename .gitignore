@@ -1,0 +1,9 @@
+# the data is never uploaded (see DATA_CARD.md)
+data/
+!data/README.md
+# environments and caches
+.venv/
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store

@@ -1,0 +1,9 @@
+rows,4231070.0
+missing_values,0.0
+labels_not_0_or_1,0.0
+shots_off_the_court,0.0
+share_xy_disagrees_with_distance,0.0
+games_with_conflicting_info,0.0
+threes_under_21ft,77.0
+twos_over_24ft,32.0
+make_rate,0.45769746187134697
