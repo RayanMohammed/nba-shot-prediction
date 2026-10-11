@@ -18,12 +18,15 @@ HOOP_Y = 5.25
 # Fix:  x = 10 * LOC_X   and   y = 10 * (LOC_Y - 5.25)
 SCALED_SEASONS = ["2019-20", "2020-21", "2021-22"]
 
-# PROPOSED split, not frozen yet. Whole seasons only, so a game can never be in two splits
-# and everything we train on happened before everything we test on.
+# Split, decided Oct 11, 2026. Locked: don't change this after looking at any test results.
+# Whole seasons only, so a game is never in two splits and training always comes before testing.
 SPLITS = {
-    "train": ("2003-04", "2020-21"),
-    "val": ("2021-22", "2021-22"),        # for tuning and calibration
-    "test": ("2022-23", "2022-23"),       # used once, at the very end
-    "test_late": ("2023-24", "2023-24"),  # a second, later test to see drift
+    "train": ("2003-04", "2018-19"),
+    "covid": ("2019-20", "2020-21"),  # set aside, not trained on: used later to study fans vs no fans
+    "val": ("2021-22", "2022-23"),    # comparing models, tuning, calibration
+    "test": ("2023-24", "2023-24"),   # final grade, used once at the very end
 }
-SPLIT_ORDER = ["train", "val", "test", "test_late"]
+SPLIT_ORDER = ["train", "covid", "val", "test"]
+
+# Experiment: same val/test, but train only on recent seasons (start of the three-point boom onward)
+RECENT_TRAIN_START = "2012-13"

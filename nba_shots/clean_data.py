@@ -27,7 +27,7 @@ def unzip_if_needed(zip_path, raw_dir):
 
 
 def clean_season(raw):
-    """Clean one season of raw shots. Returns (clean DataFrame, number of duplicate rows dropped)."""
+    """Clean one season of raw shots. Returns (clean DataFrame, dict of how many rows were dropped and why)."""
     df = raw.copy()
 
     # drop columns that repeat other columns
@@ -59,7 +59,14 @@ def clean_season(raw):
     df = df.drop_duplicates()
     duplicates_dropped = rows_before - len(df)
 
-    return df, duplicates_dropped
+    # drop backcourt heaves: end-of-quarter desperation shots (about 2% go in).
+    # This model is for normal shot attempts, and heaves would give it easy, free credit.
+    is_heave = df["basic_zone"] == "Backcourt"
+    heaves_dropped = int(is_heave.sum())
+    df = df[~is_heave]
+
+    dropped = {"duplicates_dropped": duplicates_dropped, "heaves_dropped": heaves_dropped}
+    return df, dropped
 
 
 def main():
@@ -75,12 +82,15 @@ def main():
         # read IDs as text so pandas doesn't turn them into numbers
         raw = pd.read_csv(os.path.join(config.RAW_DIR, file_name),
                           dtype={"GAME_ID": str, "PLAYER_ID": str, "TEAM_ID": str})
-        clean, dups = clean_season(raw)
+        clean, dropped = clean_season(raw)
         season = clean["season"].iloc[0]
         clean.to_parquet(os.path.join(config.CLEAN_DIR, season + ".parquet"), index=False)
 
-        print(season, "rows:", len(clean), "duplicates dropped:", dups)
-        log.append({"season": season, "rows": len(clean), "duplicates_dropped": dups})
+        print(season, "rows:", len(clean), "duplicates dropped:", dropped["duplicates_dropped"],
+              "heaves dropped:", dropped["heaves_dropped"])
+        log.append({"season": season, "rows": len(clean),
+                    "duplicates_dropped": dropped["duplicates_dropped"],
+                    "heaves_dropped": dropped["heaves_dropped"]})
 
     pd.DataFrame(log).to_csv(os.path.join(config.RESULTS_DIR, "clean_data_log.csv"), index=False)
 

@@ -20,6 +20,7 @@
 | 2019-20, 2020-21, 2021-22 export `LOC_X`/`LOC_Y` at 1/10 scale with a shifted y origin | ~600k rows (3 seasons) | Rescaled in `nba_shots/clean_data.py`: `x = 10·LOC_X`, `y = 10·(LOC_Y − 5.25)`. Afterwards x/y agree with `SHOT_DISTANCE` to within integer rounding in every season. Guarded by a validation check |
 | `GAME_ID` 22000000 is a placeholder shared by five 2020-21 opening games | 873 rows | `game_key` = game_id + date + home team, unique for every game |
 | Exact duplicate rows | 192 | Dropped, counted in `results/clean_data_log.csv` |
+| Backcourt heaves (end-of-quarter desperation shots, ~2% make rate) | 8,820 | Dropped: this project models normal shot attempts. Counted per season in `results/clean_data_log.csv` |
 | Same player, same game, same second (putbacks, tip-ins) | ~5.9k rows | Kept; they are real separate attempts |
 | 3PT attempts recorded under 21 ft / 2PT over 24 ft | a few hundred | Kept, counted as warnings |
 | Season length varies: 2011-12 lockout (990 games), 2019-20 suspension/bubble, 2020-21 72-game season, 2003-04 has 1,189 of 1,230 games | | Noted; affects per-season counts only |
