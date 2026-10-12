@@ -30,3 +30,14 @@ SPLIT_ORDER = ["train", "covid", "val", "test"]
 
 # Experiment: same val/test, but train only on recent seasons (start of the three-point boom onward)
 RECENT_TRAIN_START = "2012-13"
+
+# --- modeling settings ---
+
+# Distances (ft) where the make-rate curve bends, read off the TRAINING seasons only:
+# steep drop from 0 to 3 ft, nearly flat from 3 to 23 ft, slow decline past 23 ft.
+DIST_KNOTS = [1, 3, 23]
+
+# Court-square baseline (M3): size of each square, and how many "average" shots
+# every square starts with, so squares with only a few shots don't get extreme rates.
+BIN_SIZE_FT = 2
+SMOOTHING_K = 20
