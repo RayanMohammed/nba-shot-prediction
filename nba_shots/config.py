@@ -41,3 +41,10 @@ DIST_KNOTS = [1, 3, 23]
 # every square starts with, so squares with only a few shots don't get extreme rates.
 BIN_SIZE_FT = 2
 SMOOTHING_K = 20
+
+# M4 (logistic regression, many features): fit on a random sample of this many training shots.
+# It only learns ~60 numbers, so 1M shots is plenty, and the full 3.2M needs several GB of memory.
+LOGISTIC_MAX_ROWS = 1_000_000
+
+# Shot descriptions (ACTION_TYPE) with fewer training shots than this are grouped into "Other"
+MIN_ACTION_SHOTS = 2000

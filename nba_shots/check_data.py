@@ -13,11 +13,26 @@ COLUMNS = ["season", "game_key", "game_date", "home_team", "player_id", "quarter
            "loc_x", "loc_y", "shot_distance", "is_three", "made"]
 
 
-def load_clean_data(clean_dir, columns=None):
-    """Read every season's clean file and stack them into one DataFrame."""
-    files = sorted(f for f in os.listdir(clean_dir) if f.endswith(".parquet"))
-    seasons = [pd.read_parquet(os.path.join(clean_dir, f), columns=columns) for f in files]
-    return pd.concat(seasons, ignore_index=True)
+def load_clean_data(clean_dir, columns=None, seasons=None):
+    """Read the clean season files and stack them into one DataFrame.
+
+    columns: only load these columns (None = all of them).
+    seasons: only load these seasons, e.g. ["2021-22", "2022-23"] (None = all of them).
+    """
+    parts = []
+    for file_name in sorted(os.listdir(clean_dir)):
+        if not file_name.endswith(".parquet"):
+            continue
+        season = file_name.replace(".parquet", "")
+        if seasons is not None and season not in seasons:
+            continue
+        df = pd.read_parquet(os.path.join(clean_dir, file_name), columns=columns)
+        # store text columns compactly: normal pandas text uses about 3x the memory
+        for col in df.columns:
+            if df[col].dtype == object:
+                df[col] = df[col].astype("string[pyarrow]")
+        parts.append(df)
+    return pd.concat(parts, ignore_index=True)
 
 
 def run_checks(df):

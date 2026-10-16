@@ -7,7 +7,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from nba_shots import config
-from nba_shots.features import distance_zone_features
+from nba_shots.features import all_features, common_action_types, distance_zone_features
 from nba_shots.leakage import check_features
 
 
@@ -56,3 +56,23 @@ def predict_court_squares(train, val, size=config.BIN_SIZE_FT, k=config.SMOOTHIN
     merged = val.merge(squares[["square_x", "square_y", "rate"]], on=["square_x", "square_y"], how="left")
     # a square with no training shots at all just gets the overall rate
     return merged["rate"].fillna(overall).to_numpy()
+
+
+def predict_logistic_all(train, val, use_action_type=True):
+    """M4: logistic regression on every feature we have (the best a straight-line model can do).
+
+    use_action_type=False runs the same model without the shot description, since that column is
+    written down after the shot (see leakage.FLAGGED) and we have to show results without it too.
+    """
+    if len(train) > config.LOGISTIC_MAX_ROWS:
+        train = train.sample(n=config.LOGISTIC_MAX_ROWS, random_state=0)
+    common = common_action_types(train)
+    X_train = all_features(train, common, use_action_type)
+    X_val = all_features(val, common, use_action_type).reindex(columns=X_train.columns, fill_value=0)
+    model = fit_logistic(X_train, train["made"])
+    return model.predict_proba(X_val)[:, 1]
+
+
+def predict_logistic_no_action(train, val):
+    """M4 without the shot description (the ablation)."""
+    return predict_logistic_all(train, val, use_action_type=False)

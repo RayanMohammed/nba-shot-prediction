@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from nba_shots.splits import assign_split, check_splits
+from nba_shots.splits import assign_split, check_splits, seasons_in
 
 SPLITS = {"train": ("2001-02", "2002-03"), "val": ("2003-04", "2003-04"), "test": ("2004-05", "2004-05")}
 ORDER = ["train", "val", "test"]
@@ -42,3 +42,9 @@ def test_season_in_two_splits_fails():
     bad = {"train": ("2001-02", "2003-04"), "val": ("2003-04", "2003-04")}
     with pytest.raises(ValueError):
         assign_split(fake_games([("2003-04", "g1", "2004-01-01")]), bad)
+
+
+
+def test_seasons_in_picks_only_named_splits():
+    all_seasons = ["2000-01", "2001-02", "2002-03", "2003-04", "2004-05"]
+    assert seasons_in(["train", "val"], all_seasons, SPLITS) == ["2001-02", "2002-03", "2003-04"]

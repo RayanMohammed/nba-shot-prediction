@@ -1,6 +1,6 @@
 import pandas as pd
 
-from nba_shots.check_data import run_checks
+from nba_shots.check_data import load_clean_data, run_checks
 
 
 def fake_clean(rows):
@@ -26,3 +26,12 @@ def test_wrong_coordinate_scale_is_caught():
 def test_game_with_two_dates_is_caught():
     _, problems = run_checks(fake_clean([(17.25, "2019-01-01"), (17.25, "2019-01-02")]))
     assert any("game_key" in p for p in problems)
+
+
+
+def test_load_only_requested_seasons_and_columns(tmp_path):
+    for season in ["2001-02", "2002-03"]:
+        pd.DataFrame({"season": [season], "made": [1], "extra": ["x"]}).to_parquet(tmp_path / (season + ".parquet"))
+    df = load_clean_data(tmp_path, columns=["season", "made"], seasons=["2002-03"])
+    assert list(df["season"]) == ["2002-03"]
+    assert list(df.columns) == ["season", "made"]

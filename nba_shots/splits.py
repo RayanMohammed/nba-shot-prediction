@@ -29,3 +29,14 @@ def check_splits(df, order=config.SPLIT_ORDER):
             continue
         if earlier["game_date"].max() >= later["game_date"].min():
             raise ValueError(order[i] + " overlaps in time with " + order[i + 1])
+
+
+def seasons_in(split_names, all_seasons, splits=config.SPLITS):
+    """The seasons (from all_seasons) that belong to any of the named splits."""
+    keep = []
+    for season in all_seasons:
+        for name in split_names:
+            first, last = splits[name]
+            if first <= season <= last:
+                keep.append(season)
+    return keep
