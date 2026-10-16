@@ -58,21 +58,26 @@ def predict_court_squares(train, val, size=config.BIN_SIZE_FT, k=config.SMOOTHIN
     return merged["rate"].fillna(overall).to_numpy()
 
 
-def predict_logistic_all(train, val, use_action_type=True):
+def predict_logistic_all(train, val, shot_type="family"):
     """M4: logistic regression on every feature we have (the best a straight-line model can do).
 
-    use_action_type=False runs the same model without the shot description, since that column is
-    written down after the shot (see leakage.FLAGGED) and we have to show results without it too.
+    shot_type is passed to all_features: "family" (main), "detailed" (raw shot descriptions),
+    or "none" (no shot type, the ablation: the description is written down after the shot).
     """
     if len(train) > config.LOGISTIC_MAX_ROWS:
         train = train.sample(n=config.LOGISTIC_MAX_ROWS, random_state=0)
     common = common_action_types(train)
-    X_train = all_features(train, common, use_action_type)
-    X_val = all_features(val, common, use_action_type).reindex(columns=X_train.columns, fill_value=0)
+    X_train = all_features(train, common, shot_type)
+    X_val = all_features(val, common, shot_type).reindex(columns=X_train.columns, fill_value=0)
     model = fit_logistic(X_train, train["made"])
     return model.predict_proba(X_val)[:, 1]
 
 
-def predict_logistic_no_action(train, val):
-    """M4 without the shot description (the ablation)."""
-    return predict_logistic_all(train, val, use_action_type=False)
+def predict_logistic_detailed(train, val):
+    """M4 with the raw shot descriptions instead of families (comparison)."""
+    return predict_logistic_all(train, val, shot_type="detailed")
+
+
+def predict_logistic_no_shot_type(train, val):
+    """M4 with no shot type at all (ablation)."""
+    return predict_logistic_all(train, val, shot_type="none")

@@ -24,6 +24,8 @@
 | Same player, same game, same second (putbacks, tip-ins) | ~5.9k rows | Kept; they are real separate attempts |
 | 3PT attempts recorded under 21 ft / 2PT over 24 ft | a few hundred | Kept, counted as warnings |
 | Season length varies: 2011-12 lockout (990 games), 2019-20 suspension/bubble, 2020-21 72-game season, 2003-04 has 1,189 of 1,230 games | | Noted; affects per-season counts only |
+| `ACTION_TYPE` labels changed over time: "Layup Shot" fell from 15% of shots (2003-12) to 3% (2021-24) while new specific labels ("Cutting Layup Shot", "Driving Floating Jump Shot") appeared around 2012 | all seasons | Main model trains on 2012-13 onward and uses ~9 shot families (`config.SHOT_FAMILIES`) instead of raw labels |
+| Shots labeled "Bank" go in far more often than their non-bank versions (57% vs 34% for jump shots), probably because the label is mostly given to shots that banked in | ~2% of shots | Shot families ignore the word "Bank". Dropping it barely changes validation scores |
 | `POSITION` is fixed within a player-season but changes across seasons | | Not outcome leakage; treated with caution as a feature |
 
 ## Coordinate frame (after cleaning)

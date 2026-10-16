@@ -13,6 +13,8 @@ FORBIDDEN = {
 }
 
 # Allowed, but we must also report results WITHOUT these, since they're written down after the shot.
+# action_type may also be partly tied to the result: "Bank" seems to appear mostly on shots that banked IN.
+# The main model only uses shot families (config.SHOT_FAMILIES), which ignore the word "Bank".
 FLAGGED = ["action_type"]
 
 

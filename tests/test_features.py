@@ -1,7 +1,7 @@
 import pandas as pd
 
 from nba_shots.features import (add_angle, add_distance_hinges, add_game_clock, add_is_home,
-                                 common_action_types)
+                                 common_action_types, shot_family)
 
 
 def test_hinges_count_feet_past_each_knot():
@@ -40,3 +40,15 @@ def test_is_home_finds_each_teams_abbreviation():
 def test_rare_action_types_left_out():
     train = pd.DataFrame({"action_type": ["Jump Shot"] * 5 + ["Dunk"] * 2 + ["Hook"]})
     assert common_action_types(train, min_shots=2) == ["Jump Shot", "Dunk"]
+
+
+def test_shot_families():
+    assert shot_family("Driving Floating Bank Jump Shot") == "floater"
+    assert shot_family("Putback Dunk Shot") == "dunk"           # dunk is checked before putback
+    assert shot_family("Tip Layup Shot") == "tip/putback"       # tip is checked before layup
+    assert shot_family("Cutting Finger Roll Layup Shot") == "layup"
+    assert shot_family("Turnaround Bank Hook Shot") == "hook"   # hook is checked before turnaround
+    assert shot_family("Step Back Jump shot") == "step-back"
+    assert shot_family("Running Pull-Up Jump Shot") == "pull-up"
+    assert shot_family("Jump Bank Shot") == "jumper"            # "Bank" alone doesn't make a family
+    assert shot_family("Jump Shot") == "jumper"

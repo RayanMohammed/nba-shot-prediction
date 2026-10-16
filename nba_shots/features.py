@@ -74,9 +74,23 @@ def common_action_types(train, min_shots=config.MIN_ACTION_SHOTS):
     return list(counts[counts >= min_shots].index)
 
 
-def all_features(df, common_actions, use_action_type=True):
+def shot_family(action_type):
+    """Group one shot description into a family, e.g. "Driving Floating Bank Jump Shot" -> "floater"."""
+    for family, keywords in config.SHOT_FAMILIES:
+        for word in keywords:
+            if word in action_type:
+                return family
+    return "jumper"
+
+
+def all_features(df, common_actions, shot_type="family"):
     """Inputs for M4: everything from M2, plus angle, side of the court, game clock, home/away,
-    and (optionally) the shot description."""
+    and the kind of shot.
+
+    shot_type: "family"   -> the ~9 shot families (main model, and what the app will offer)
+               "detailed" -> the raw shot descriptions (comparison)
+               "none"     -> no shot type at all (ablation)
+    """
     df = add_distance_hinges(df)
     df = add_angle(df)
     df = add_game_clock(df)
@@ -91,7 +105,11 @@ def all_features(df, common_actions, use_action_type=True):
         pd.get_dummies(df["zone_name"], prefix="side", dtype=int),
         pd.get_dummies(df["period"], prefix="period", dtype=int),
     ]
-    if use_action_type:
+    if shot_type == "family":
+        # .unique() first, so shot_family runs once per distinct description, not once per shot
+        families = {a: shot_family(a) for a in df["action_type"].unique()}
+        parts.append(pd.get_dummies(df["action_type"].map(families), prefix="family", dtype=int))
+    elif shot_type == "detailed":
         action = df["action_type"].where(df["action_type"].isin(common_actions), "Other")
         parts.append(pd.get_dummies(action, prefix="action", dtype=int))
     # 32-bit decimals use half the memory of pandas' default 64-bit numbers, plenty precise for this

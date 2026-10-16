@@ -28,8 +28,10 @@ SPLITS = {
 }
 SPLIT_ORDER = ["train", "covid", "val", "test"]
 
-# Experiment: same val/test, but train only on recent seasons (start of the three-point boom onward)
-RECENT_TRAIN_START = "2012-13"
+# Main setup: train only on 2012-13 onward (decided Oct 15, 2026, from validation results).
+# Older seasons use different shot labels and a different style of play. Training on ALL train
+# seasons (2003-04 on) is kept as the comparison.
+MAIN_TRAIN_START = "2012-13"
 
 # --- modeling settings ---
 
@@ -47,4 +49,20 @@ SMOOTHING_K = 20
 LOGISTIC_MAX_ROWS = 1_000_000
 
 # Shot descriptions (ACTION_TYPE) with fewer training shots than this are grouped into "Other"
+# (only used by the "detailed" comparison; the main model uses shot families, see features.py)
 MIN_ACTION_SHOTS = 2000
+
+# Shot families: ACTION_TYPE grouped by keyword. Checked in this order, first match wins,
+# anything left over is a "jumper". "Bank" is ignored on purpose: bank-labeled shots go in far more
+# often than their non-bank versions (57% vs 34% for jump shots), probably because a shot gets the
+# label mostly when it banks IN. Checked Oct 15: dropping "Bank" barely changes validation scores.
+SHOT_FAMILIES = [
+    ("dunk", ["Dunk"]),
+    ("tip/putback", ["Tip", "Putback"]),
+    ("layup", ["Layup", "Finger Roll"]),
+    ("hook", ["Hook"]),
+    ("floater", ["Floating"]),
+    ("step-back", ["Step Back"]),
+    ("pull-up", ["Pullup", "Pull-Up"]),
+    ("turnaround/fadeaway", ["Turnaround", "Fadeaway"]),
+]
