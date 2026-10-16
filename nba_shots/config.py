@@ -66,3 +66,14 @@ SHOT_FAMILIES = [
     ("pull-up", ["Pullup", "Pull-Up"]),
     ("turnaround/fadeaway", ["Turnaround", "Fadeaway"]),
 ]
+
+# Extra shot details kept on top of the families (they carry most of what the detailed labels add):
+# on_the_move = the description contains one of these words; alley_oop = it contains "Alley Oop"
+MOVING_WORDS = ["Driving", "Running", "Cutting"]
+
+# M5 gradient boosting (scikit-learn's HistGradientBoostingClassifier)
+BOOSTING_LEARNING_RATE = 0.1
+BOOSTING_MIN_SHOTS_PER_LEAF = 100   # every leaf must hold at least this many shots (keeps trees stable)
+BOOSTING_TREES_STEP = 50            # add trees 50 at a time while checking the held-out games
+BOOSTING_MAX_TREES = 1000
+BOOSTING_HELDOUT_GAMES = 0.1        # share of TRAINING games held out to decide when to stop adding trees

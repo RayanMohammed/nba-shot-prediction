@@ -40,3 +40,14 @@ def plot_calibration(tables, path, title):
     ax.legend()
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
+
+
+def fit_and_score(name, predict, train, val, train_seasons, rows):
+    """Fit one model, print its validation scores, add them to rows, and return its predictions."""
+    p = predict(train, val)
+    s = score(val["made"], p)
+    label = name if train_seasons == "main" else name + " (all seasons)"
+    print(f"{label:44s} log loss {s['log_loss']:.4f} | brier {s['brier']:.4f} | auc {s['auc']:.4f}", flush=True)
+    rows.append({"model": name, "train_seasons": train_seasons, "log_loss": s["log_loss"],
+                 "brier": s["brier"], "auc": s["auc"]})
+    return p

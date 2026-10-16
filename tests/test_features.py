@@ -1,7 +1,7 @@
 import pandas as pd
 
 from nba_shots.features import (add_angle, add_distance_hinges, add_game_clock, add_is_home,
-                                 common_action_types, shot_family)
+                                 all_features, common_action_types, shot_family)
 
 
 def test_hinges_count_feet_past_each_knot():
@@ -52,3 +52,17 @@ def test_shot_families():
     assert shot_family("Running Pull-Up Jump Shot") == "pull-up"
     assert shot_family("Jump Bank Shot") == "jumper"            # "Bank" alone doesn't make a family
     assert shot_family("Jump Shot") == "jumper"
+
+
+def test_family_flags():
+    df = pd.DataFrame({
+        "season": "2018-19", "team_name": "Team A", "game_key": "g1", "home_team": "AAA",
+        "away_team": "BBB", "shot_distance": [1, 1, 20], "is_three": 0, "loc_x": 0.0,
+        "loc_y": [6.0, 6.0, 25.0], "mins_left": 5, "secs_left": 0, "quarter": 1,
+        "basic_zone": "Restricted Area", "zone_name": "Center",
+        "action_type": ["Driving Layup Shot", "Alley Oop Dunk Shot", "Jump Shot"],
+    })
+    X = all_features(df, common_actions=[], shot_type="family+flags")
+    assert list(X["on_the_move"]) == [1, 0, 0]
+    assert list(X["alley_oop"]) == [0, 1, 0]
+    assert list(X["family_layup"]) == [1, 0, 0]

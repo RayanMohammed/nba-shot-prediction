@@ -1,5 +1,7 @@
 # Split shots into train / val / test by season, and check the split is safe.
 
+import os
+
 from nba_shots import config
 
 
@@ -40,3 +42,28 @@ def seasons_in(split_names, all_seasons, splits=config.SPLITS):
             if first <= season <= last:
                 keep.append(season)
     return keep
+
+
+def load_train_val(columns, include_old_seasons=True):
+    """Load ONLY the train and val seasons (covid and test are never read).
+
+    include_old_seasons=False skips training seasons before config.MAIN_TRAIN_START (saves memory
+    when the all-seasons comparison isn't needed); the second return value is then None.
+    Returns (main training shots from config.MAIN_TRAIN_START on, all training shots, validation shots).
+    """
+    from nba_shots.check_data import load_clean_data  # imported here to avoid a circular import
+
+    all_seasons = [f.replace(".parquet", "") for f in sorted(os.listdir(config.CLEAN_DIR))]
+    seasons = seasons_in(["train", "val"], all_seasons)
+    if not include_old_seasons:
+        seasons = [s for s in seasons if s >= config.MAIN_TRAIN_START]
+    df = assign_split(load_clean_data(config.CLEAN_DIR, columns=columns, seasons=seasons))
+    check_splits(df)
+    all_train = df[df["split"] == "train"]
+    val = df[df["split"] == "val"]
+    del df  # all_train and val are copies, so free the full table to save memory
+    train = all_train[all_train["season"] >= config.MAIN_TRAIN_START]
+    print("main train shots:", len(train), "| all-season train shots:", len(all_train), "| val shots:", len(val))
+    if not include_old_seasons:
+        return all_train, None, val  # all_train already only has the main seasons
+    return train, all_train, val

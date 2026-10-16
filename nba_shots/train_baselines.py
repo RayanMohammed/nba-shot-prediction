@@ -1,4 +1,4 @@
-# Fit the model ladder on the training seasons and score it on validation.
+# Fit the simple model ladder (M0-M4) on the training seasons and score it on validation.
 # Only the train and validation seasons are read; the covid and test seasons are never loaded here.
 # Run from the project folder:   python -m nba_shots.train_baselines
 
@@ -7,12 +7,12 @@ import os
 import pandas as pd
 
 from nba_shots import config
-from nba_shots.check_data import load_clean_data
-from nba_shots.evaluate import calibration_table, plot_calibration, score
+from nba_shots.evaluate import calibration_table, fit_and_score, plot_calibration
 from nba_shots.models import (predict_constant, predict_court_squares, predict_distance_only,
                               predict_distance_shape_zone, predict_logistic_all,
-                              predict_logistic_detailed, predict_logistic_no_shot_type)
-from nba_shots.splits import assign_split, check_splits, seasons_in
+                              predict_logistic_detailed, predict_logistic_families_only,
+                              predict_logistic_no_shot_type)
+from nba_shots.splits import load_train_val
 
 COLUMNS = ["season", "game_key", "game_date", "made", "shot_distance", "is_three", "basic_zone",
            "zone_name", "loc_x", "loc_y", "action_type", "quarter", "mins_left", "secs_left",
@@ -23,47 +23,30 @@ MODELS = {
     "M1 distance only": predict_distance_only,
     "M2 distance shape + zone": predict_distance_shape_zone,
     "M3 court squares": predict_court_squares,
-    "M4 logistic, shot families": predict_logistic_all,
+    "M4 logistic, families + flags": predict_logistic_all,
+    "M4 families only": predict_logistic_families_only,
     "M4 detailed shot descriptions": predict_logistic_detailed,
     "M4 no shot type": predict_logistic_no_shot_type,
 }
 
 # models to also run on ALL training seasons (2003-04 on), as the comparison to the main setup
-ALL_SEASON_COMPARISONS = ["M2 distance shape + zone", "M4 logistic, shot families"]
+ALL_SEASON_COMPARISONS = ["M2 distance shape + zone", "M4 logistic, families + flags"]
 
 # models drawn on the calibration plot (a constant has nothing to calibrate)
-PLOT = ["M1 distance only", "M2 distance shape + zone", "M4 logistic, shot families"]
-
-
-def run(name, predict, train, val, train_seasons, rows, calibration):
-    """Fit one model, print and store its validation scores."""
-    p = predict(train, val)
-    s = score(val["made"], p)
-    label = name if train_seasons == "main" else name + " (all seasons)"
-    print(f"{label:42s} log loss {s['log_loss']:.4f} | brier {s['brier']:.4f} | auc {s['auc']:.4f}", flush=True)
-    rows.append({"model": name, "train_seasons": train_seasons, "log_loss": s["log_loss"],
-                 "brier": s["brier"], "auc": s["auc"]})
-    if name in PLOT and train_seasons == "main":
-        calibration[name] = calibration_table(val["made"], p)
+PLOT = ["M1 distance only", "M2 distance shape + zone", "M4 logistic, families + flags"]
 
 
 def main():
-    all_seasons = [f.replace(".parquet", "") for f in sorted(os.listdir(config.CLEAN_DIR))]
-    seasons = seasons_in(["train", "val"], all_seasons)
-    df = assign_split(load_clean_data(config.CLEAN_DIR, columns=COLUMNS, seasons=seasons))
-    check_splits(df)
-    all_train = df[df["split"] == "train"]
-    val = df[df["split"] == "val"]
-    del df  # all_train and val are copies, so free the full table to save memory
-    train = all_train[all_train["season"] >= config.MAIN_TRAIN_START]
-    print("main train shots:", len(train), "| all-season train shots:", len(all_train), "| val shots:", len(val))
+    train, all_train, val = load_train_val(COLUMNS)
 
     rows = []
     calibration = {}
     for name, predict in MODELS.items():
-        run(name, predict, train, val, "main", rows, calibration)
+        p = fit_and_score(name, predict, train, val, "main", rows)
+        if name in PLOT:
+            calibration[name] = calibration_table(val["made"], p)
     for name in ALL_SEASON_COMPARISONS:
-        run(name, MODELS[name], all_train, val, "all", rows, calibration)
+        fit_and_score(name, MODELS[name], all_train, val, "all", rows)
 
     pd.DataFrame(rows).to_csv(os.path.join(config.RESULTS_DIR, "baselines_val.csv"), index=False)
     plot_calibration(calibration, os.path.join(config.RESULTS_DIR, "calibration_baselines_val.png"),

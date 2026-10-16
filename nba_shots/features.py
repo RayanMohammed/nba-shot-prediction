@@ -83,13 +83,15 @@ def shot_family(action_type):
     return "jumper"
 
 
-def all_features(df, common_actions, shot_type="family"):
+def all_features(df, common_actions, shot_type="family+flags", with_xy=False):
     """Inputs for M4: everything from M2, plus angle, side of the court, game clock, home/away,
     and the kind of shot.
 
-    shot_type: "family"   -> the ~9 shot families (main model, and what the app will offer)
-               "detailed" -> the raw shot descriptions (comparison)
-               "none"     -> no shot type at all (ablation)
+    shot_type: "family+flags" -> the 9 shot families + on_the_move + alley_oop (main model, and the app)
+               "family"       -> the 9 shot families only
+               "detailed"     -> the raw shot descriptions (comparison)
+               "none"         -> no shot type at all (ablation)
+    with_xy: also include the raw court coordinates (useful for tree models, which can split on them)
     """
     df = add_distance_hinges(df)
     df = add_angle(df)
@@ -99,17 +101,24 @@ def all_features(df, common_actions, shot_type="family"):
     hinge_cols = ["dist_over_" + str(k) for k in config.DIST_KNOTS]
     number_cols = ["shot_distance", "is_three", "angle", "secs_left_in_period", "last_5_secs",
                    "is_home"] + hinge_cols
+    if with_xy:
+        number_cols = number_cols + ["loc_x", "loc_y"]
     parts = [
         df[number_cols],
         pd.get_dummies(df["basic_zone"], prefix="zone", dtype=int),
         pd.get_dummies(df["zone_name"], prefix="side", dtype=int),
         pd.get_dummies(df["period"], prefix="period", dtype=int),
     ]
-    if shot_type == "family":
+    if shot_type in ["family", "family+flags"]:
         # .unique() first, so shot_family runs once per distinct description, not once per shot
         families = {a: shot_family(a) for a in df["action_type"].unique()}
         parts.append(pd.get_dummies(df["action_type"].map(families), prefix="family", dtype=int))
-    elif shot_type == "detailed":
+    if shot_type == "family+flags":
+        # "Driving|Running|Cutting" means "contains any of these words"
+        moving = df["action_type"].str.contains("|".join(config.MOVING_WORDS))
+        oop = df["action_type"].str.contains("Alley Oop")
+        parts.append(pd.DataFrame({"on_the_move": moving.astype(int), "alley_oop": oop.astype(int)}))
+    if shot_type == "detailed":
         action = df["action_type"].where(df["action_type"].isin(common_actions), "Other")
         parts.append(pd.get_dummies(action, prefix="action", dtype=int))
     # 32-bit decimals use half the memory of pandas' default 64-bit numbers, plenty precise for this
