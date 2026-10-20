@@ -110,3 +110,16 @@ CALIBRATION_KNOTS = [0.35, 0.45, 0.55, 0.65]
 # The calibrator the final model uses (chosen Oct 19): "smooth" kept ~90% of its gain when learned from
 # only 10% of a season; isotonic's gain collapsed to ~0 there (calibration_overfit_checks.csv)
 CALIBRATION_METHOD = "smooth"
+
+# The final model + calibrator, saved by final_test.py and loaded by the app (inside data/, never uploaded)
+FINAL_MODEL_PATH = "data/final_model.pkl"
+
+# Shooter skill: shrinkage = every player starts with this many pretend league-average shots per shot
+# category, so a player with few shots stays near average. Several values are tried on validation.
+SKILL_K_OPTIONS = [100, 300, 1000]
+SKILL_K = 1000  # chosen Oct 19 (train_skill.py); 100/300/1000 all scored within 0.0001, so k barely matters
+
+# Opponent defense: same idea, per defending team, restarting each season. A team faces ~85 shots a game,
+# so its record fills up fast; heavier shrinkage values are tried.
+DEFENSE_K_OPTIONS = [300, 1000, 3000]
+DEFENSE_K = 1000  # chosen Oct 19 (train_skill.py); 300/1000/3000 all scored within 0.0001

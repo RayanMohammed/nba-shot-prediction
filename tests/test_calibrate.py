@@ -1,9 +1,11 @@
+import pickle
+
 import numpy as np
 import pandas as pd
 
 from nba_shots import config
-from nba_shots.calibrate import (apply_platt, apply_smooth, fit_isotonic, fit_platt, fit_smooth,
-                                 overfitting_checks)
+from nba_shots.calibrate import (apply_calibrator, apply_platt, apply_smooth, fit_calibrator, fit_isotonic,
+                                 fit_platt, fit_smooth, overfitting_checks)
 from nba_shots.evaluate import score
 
 
@@ -49,3 +51,15 @@ def test_smooth_fixes_a_bend_that_platt_cannot():
     platt_loss = score(y[check], apply_platt(fit_platt(bent[fit], y[fit]), bent[check]))["log_loss"]
     smooth_loss = score(y[check], apply_smooth(fit_smooth(bent[fit], y[fit]), bent[check]))["log_loss"]
     assert smooth_loss < platt_loss
+
+
+def test_calibrator_survives_saving_and_loading(tmp_path):
+    rng = np.random.default_rng(3)
+    p = rng.uniform(0.2, 0.8, 5000)
+    y = (rng.uniform(0, 1, 5000) < p).astype(int)
+    calibrator = fit_calibrator("smooth", p * 0.9, y)
+    with open(tmp_path / "bundle.pkl", "wb") as f:
+        pickle.dump({"calibrator": calibrator}, f)
+    with open(tmp_path / "bundle.pkl", "rb") as f:
+        loaded = pickle.load(f)["calibrator"]
+    assert np.allclose(apply_calibrator("smooth", calibrator, p), apply_calibrator("smooth", loaded, p))

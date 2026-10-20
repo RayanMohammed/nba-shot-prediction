@@ -149,12 +149,13 @@ def fit_boosting(X, y, held, min_leaf=config.BOOSTING_MIN_SHOTS_PER_LEAF, l2=con
 
 def predict_boosting(train, val, shot_type="family", stopping=config.BOOSTING_STOPPING,
                      min_leaf=config.BOOSTING_MIN_SHOTS_PER_LEAF, l2=config.BOOSTING_L2,
-                     with_xy=config.BOOSTING_WITH_XY):
+                     with_xy=config.BOOSTING_WITH_XY, extra_cols=None):
     """M5: gradient boosting on the same features as M4 (plus, by default, the raw court coordinates).
     The other arguments default to the settings in config.py; tune_boosting.py tries other values."""
     common = common_action_types(train)
-    X_train = all_features(train, common, shot_type, with_xy=with_xy)
-    X_val = all_features(val, common, shot_type, with_xy=with_xy).reindex(columns=X_train.columns, fill_value=0)
+    X_train = all_features(train, common, shot_type, with_xy=with_xy, extra_cols=extra_cols)
+    X_val = all_features(val, common, shot_type, with_xy=with_xy, extra_cols=extra_cols)
+    X_val = X_val.reindex(columns=X_train.columns, fill_value=0)
     held = stopping_set(train, stopping)
     model, n_trees = fit_boosting(X_train, train["made"], held, min_leaf, l2)
     print("    chosen trees:", n_trees)
@@ -171,3 +172,23 @@ def predict_boosting_detailed(train, val):
 
 def predict_boosting_no_shot_type(train, val):
     return predict_boosting(train, val, shot_type="none")
+
+
+SKILL_COLUMNS = ["shooter_skill", "shooter_prior_shots"]
+DEFENSE_COLUMNS = ["opponent_defense", "opponent_prior_shots"]
+
+
+def predict_boosting_with_skill(train, val):
+    """M5 + shooter skill: the main model plus the shooter's as-of skill and how many earlier shots it's based on
+    (so the trees can learn to trust the skill number more when it rests on more shots)."""
+    return predict_boosting(train, val, extra_cols=SKILL_COLUMNS)
+
+
+def predict_boosting_with_defense(train, val):
+    """M5 + opponent defense (and how many earlier shots this season it's based on)."""
+    return predict_boosting(train, val, extra_cols=DEFENSE_COLUMNS)
+
+
+def predict_boosting_with_both(train, val):
+    """M5 + shooter skill + opponent defense."""
+    return predict_boosting(train, val, extra_cols=SKILL_COLUMNS + DEFENSE_COLUMNS)

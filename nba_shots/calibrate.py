@@ -59,13 +59,27 @@ def fit_isotonic(p, y):
     return model
 
 
-def fit_and_apply(method, p_fit, y_fit, p_new):
-    """Learn a correction ("Platt" or "isotonic") on (p_fit, y_fit), apply it to p_new."""
+def fit_calibrator(method, p, y):
+    """Learn a correction of the given kind ("Platt", "smooth" or "isotonic")."""
     if method == "Platt":
-        return apply_platt(fit_platt(p_fit, y_fit), p_new)
+        return fit_platt(p, y)
     if method == "smooth":
-        return apply_smooth(fit_smooth(p_fit, y_fit), p_new)
-    return fit_isotonic(p_fit, y_fit).predict(p_new)
+        return fit_smooth(p, y)
+    return fit_isotonic(p, y)
+
+
+def apply_calibrator(method, calibrator, p):
+    """Apply a correction learned by fit_calibrator to new predictions."""
+    if method == "Platt":
+        return apply_platt(calibrator, p)
+    if method == "smooth":
+        return apply_smooth(calibrator, p)
+    return calibrator.predict(p)
+
+
+def fit_and_apply(method, p_fit, y_fit, p_new):
+    """Learn a correction on (p_fit, y_fit), apply it to p_new."""
+    return apply_calibrator(method, fit_calibrator(method, p_fit, y_fit), p_new)
 
 
 def overfitting_checks(preds):

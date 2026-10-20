@@ -22,6 +22,8 @@ python -m nba_shots.train_boosting    # M5, several minutes
 python -m nba_shots.calibrate         # M7 recalibration, seconds
 python -m nba_shots.compare_models    # confidence intervals, under a minute
 python -m nba_shots.check_overfitting # training vs unseen shots, several minutes
+python -m nba_shots.train_skill       # main vs + shooter skill / + opponent defense / + both, ~20 minutes
+python -m nba_shots.final_test        # the ONE-TIME test on 2023-24, ~15 minutes
 python -m pytest
 ```
 

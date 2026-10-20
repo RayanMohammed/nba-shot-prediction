@@ -17,6 +17,11 @@ FORBIDDEN = {
 # The main model only uses shot families (config.SHOT_FAMILIES), which ignore the word "Bank".
 FLAGGED = ["action_type"]
 
+# Allowed ONLY because they're built from earlier games (features.add_shooter_history), never from the
+# shot's own game or later ones. tests/test_features.py checks that.
+AS_OF_ONLY = ["shooter_skill", "shooter_prior_shots", "shooter_prior_resid",
+              "opponent_defense", "opponent_prior_shots", "opponent_prior_resid"]
+
 
 def check_features(feature_cols):
     """Raise an error if any feature is on the forbidden list."""

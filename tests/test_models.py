@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 
-from nba_shots.models import (pick_heldout_games, predict_boosting, predict_constant, predict_court_squares,
-                              stopping_set)
+from nba_shots.final_test import fit_final_model
+from nba_shots.models import (pick_heldout_games, predict_boosting, predict_boosting_with_both,
+                              predict_boosting_with_defense, predict_boosting_with_skill, predict_constant,
+                              predict_court_squares, stopping_set)
 
 
 def test_constant_predicts_training_rate():
@@ -77,3 +79,42 @@ def test_last_season_stop_falls_back_when_only_one_season():
     train = pd.DataFrame({"season": "2018-19", "game_key": ["g" + str(i) for i in range(20)]})
     held = stopping_set(train, "last_season")
     assert 0 < held.sum() < len(train)  # some games held out, not all of them
+
+
+def test_boosting_with_skill_runs_end_to_end():
+    rng = np.random.default_rng(5)
+    train = fake_shots(seed=0).assign(shooter_skill=lambda d: rng.normal(0, 0.03, len(d)),
+                                      shooter_prior_shots=lambda d: rng.integers(0, 2000, len(d)))
+    val = fake_shots(n_games=5, seed=1).assign(shooter_skill=0.0, shooter_prior_shots=500)
+    p = predict_boosting_with_skill(train, val)
+    assert len(p) == len(val) and ((p > 0) & (p < 1)).all()
+
+
+def test_boosting_with_defense_and_both_run_end_to_end():
+    rng = np.random.default_rng(6)
+    extra = {"shooter_skill": lambda d: rng.normal(0, 0.03, len(d)),
+             "shooter_prior_shots": lambda d: rng.integers(0, 2000, len(d)),
+             "opponent_defense": lambda d: rng.normal(0, 0.01, len(d)),
+             "opponent_prior_shots": lambda d: rng.integers(0, 3000, len(d))}
+    train = fake_shots(seed=0).assign(**extra)
+    val = fake_shots(n_games=5, seed=1).assign(**extra)
+    for predict in [predict_boosting_with_defense, predict_boosting_with_both]:
+        p = predict(train, val)
+        assert len(p) == len(val) and ((p > 0) & (p < 1)).all()
+
+
+def test_final_model_pipeline_runs_on_tiny_data():
+    rng = np.random.default_rng(7)
+    extra = {"shooter_skill": lambda d: rng.normal(0, 0.03, len(d)),
+             "shooter_prior_shots": lambda d: rng.integers(0, 2000, len(d)),
+             "opponent_defense": lambda d: rng.normal(0, 0.01, len(d)),
+             "opponent_prior_shots": lambda d: rng.integers(0, 3000, len(d))}
+    train = pd.concat([fake_shots(seed=0).assign(season="2018-19"), fake_shots(seed=2).assign(season="2021-22")],
+                      ignore_index=True).assign(**extra)
+    train["game_key"] = train["season"] + "_" + train["game_key"]
+    calib = fake_shots(n_games=10, seed=3).assign(**extra)
+    test = fake_shots(n_games=5, seed=4).assign(**extra)
+    p_raw, p_cal, bundle = fit_final_model(train, calib, test, ["shooter_skill", "shooter_prior_shots"])
+    assert len(p_raw) == len(p_cal) == len(test)
+    assert ((p_cal > 0) & (p_cal < 1)).all()
+    assert "shooter_skill" in bundle["feature_columns"]
