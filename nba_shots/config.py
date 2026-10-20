@@ -123,3 +123,13 @@ SKILL_K = 1000  # chosen Oct 19 (train_skill.py); 100/300/1000 all scored within
 # so its record fills up fast; heavier shrinkage values are tried.
 DEFENSE_K_OPTIONS = [300, 1000, 3000]
 DEFENSE_K = 1000  # chosen Oct 19 (train_skill.py); 300/1000/3000 all scored within 0.0001
+
+# covid_analysis.py: periods with and without fans (approximate: attendance varied by arena in 2020-21,
+# and this data has no attendance column). (label, first date, last date), dates inclusive.
+COVID_PERIODS = [
+    ("2019-20 before shutdown (fans)", "2019-10-01", "2020-03-11"),
+    ("2019-20 bubble (no fans, neutral site)", "2020-07-30", "2020-08-31"),
+    ("2020-21 Dec-Feb (mostly no fans)", "2020-12-01", "2021-02-28"),
+    ("2020-21 Mar-May (some limited fans)", "2021-03-01", "2021-05-31"),
+    ("2021-22 (fans back)", "2021-10-01", "2022-06-30"),
+]

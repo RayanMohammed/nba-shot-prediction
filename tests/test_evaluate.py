@@ -52,3 +52,7 @@ def test_save_predictions(tmp_path):
     out = pd.read_parquet(tmp_path / "p.parquet")
     assert list(out.columns) == ["season", "game_key", "made", "model A"]
     assert list(out["model A"]) == [0.6, 0.3]
+
+
+def test_ece_of_a_constant_prediction_is_its_overall_gap():
+    assert np.isclose(expected_calibration_error([1, 0, 0, 0], [0.5, 0.5, 0.5, 0.5]), 0.25)

@@ -85,6 +85,8 @@ def calibration_slope_intercept(y, p):
 
 def expected_calibration_error(y, p, n_bins=10):
     """Average gap between predicted and actual make rate over n_bins equal-size groups of shots."""
+    if len(np.unique(p)) == 1:  # every prediction identical (e.g. the constant model): one group
+        return abs(float(np.mean(p)) - float(np.mean(y)))
     table = calibration_table(y, p, n_bins)
     gaps = (table["avg_pred"] - table["actual_rate"]).abs()
     return (gaps * table["shots"]).sum() / table["shots"].sum()
