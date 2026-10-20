@@ -55,8 +55,9 @@ model 0.642; every gain above is small but clears its confidence interval.
 3. **Does shooter identity help, without leaking the future?** Yes. An "as-of" shooter skill (built only
    from games *before* each shot, shrunk toward average for small samples) improves the model on the test
    season, most for players with long histories.
-4. **Does team defense help?** It looked like it on validation, but not on the test season once the models
-   were calibrated (see findings).
+4. **Does team defense help?** A little on validation, nothing measurable on the test season: its effect is
+   small and doesn't hold from one season to the next (see findings).
+5. **Did crowds matter?** Not for home teams' shooting accuracy, as far as this data can tell (see below).
 
 ---
 
@@ -125,13 +126,47 @@ model 0.642; every gain above is small but clears its confidence interval.
   but learned from 10% of the data its gain fell from +0.0019 to −0.0014, and it had a "step" holding a single
   shot. The 6-number smooth curve kept almost all of its gain (+0.0016 → +0.0014).
   ![Recalibration check](results/calibration_m7_check.png)
-- **A feature can look useful because it fixes a different problem.** Opponent defense helped on
-  validation (−0.0016, interval [−0.0018, −0.0014]) but not on the test season. Likely reason: validation
-  compared uncalibrated models that all predicted too low, and the defense feature partly sensed "this season
-  is shooting hotter". Once calibration fixed the level, its value disappeared.
+- **Team defense: small, and not stable across seasons. My first explanation was only partly right.**
+  Opponent defense helped on validation (−0.0016) but not on the test season (−0.0000, interval
+  [−0.0003, +0.0003]). I first guessed it had only been correcting drift (validation compared uncalibrated
+  models that all predicted too low). Checking that by calibrating every model on 2021-22 and re-comparing on
+  2022-23 ([`explain_defense.py`](nba_shots/explain_defense.py)): calibration shrank defense's gain from −0.0019
+  to −0.0013, but it **stayed clearly real** (interval [−0.0017, −0.0009]). So about a third of the validation
+  gain was drift-correction; the rest was a genuine effect in 2022-23 that simply didn't carry into 2023-24.
+  Shooter skill, by contrast, held at about −0.003 in every check.
 - **Calibrated overall ≠ calibrated everywhere.** On the test season the main model is off by up to
   ±5 points within shot families (layups 4.5 points too low, pull-ups 5.6 too high), errors that cancel out
   overall. Shooter skill fixes most of the layup gap (who is finishing at the rim matters).
+
+## Did crowds matter? (2019-21 covid seasons)
+
+A natural experiment: the 2020 bubble and most of 2020-21 were played without fans. The main model was
+trained only on 2012-13 to 2018-19 (all with crowds), then scored on each period
+([`covid_analysis.py`](nba_shots/covid_analysis.py)). Two numbers per period, with game-level 95% intervals:
+
+- **Gap**: actual make rate minus what the model expected (positive = better shooting than normal-era basketball predicts)
+- **Home edge beyond the model**: how much more home shooters beat the model than away shooters did. The model
+  already learned the usual home-court shooting edge, so this measures *changes* to it.
+
+| Period | Games | Gap (points) | Home edge beyond model (points) |
+|---|---|---|---|
+| 2019-20 before shutdown (fans) | 971 | −0.8 [−1.1, −0.6] | −0.1 [−0.5, +0.3] |
+| 2019-20 bubble (no fans, neutral site) | 88 | +0.5 [−0.4, +1.4] | +0.2 [−1.2, +1.4] |
+| 2020-21 Dec–Feb (mostly no fans) | 501 | +0.3 [−0.1, +0.6] | −0.2 [−0.9, +0.4] |
+| 2020-21 Mar–May (some limited fans) | 579 | +0.7 [+0.3, +1.0] | −0.4 [−1.1, +0.2] |
+| 2021-22 (fans back) | 1,230 | +0.0 [−0.2, +0.3] | −0.0 [−0.5, +0.4] |
+
+![Home edge without fans](results/covid_home_edge.png)
+
+- **No detectable crowd effect on home teams' shooting.** Every home-edge interval includes 0. Whatever home
+  advantage was lost without fans, it doesn't show up in how well home players *shot*. That fits the idea that
+  home advantage works through other channels (officiating, free throws, turnovers), which this data (field
+  goals only) can't see, though these intervals are too wide to rule out a small shooting effect.
+- **Shooting overall ran hotter than expected in the no-fan seasons** (+0.3 to +0.7 points) after running
+  colder than expected just before the shutdown (−0.8). That swing is real, but it can't be pinned on crowds:
+  schedules, rest, empty-arena sightlines and the league's long upward shooting trend all changed at once.
+- **Caveats:** attendance came back arena by arena in 2020-21 and this data has no attendance column, so the
+  periods are approximate; the bubble is only 88 games.
 
 ## Limitations
 
@@ -167,6 +202,8 @@ python -m nba_shots.compare_models    # game-level confidence intervals
 python -m nba_shots.check_overfitting # training vs unseen shots, several minutes
 python -m nba_shots.train_skill       # + shooter skill / + opponent defense / + both, ~20 minutes
 python -m nba_shots.final_test        # the ONE-TIME test on 2023-24, ~15 minutes
+python -m nba_shots.explain_defense   # follow-up: why defense didn't hold up, seconds
+python -m nba_shots.covid_analysis    # follow-up: did crowds matter, a few minutes
 python -m pytest                      # 53 tests on made-up data (no dataset needed)
 ```
 
@@ -185,7 +222,8 @@ nba_shots/
   models.py            the model ladder (every model is predict_xxx(train, val))
   evaluate.py          scores, calibration measures, game-level bootstrap
   calibrate.py         Platt / smooth / isotonic recalibration and their overfitting checks
-  train_*.py, tune_boosting.py, compare_models.py, check_overfitting.py, final_test.py   runnable steps
+  train_*.py, tune_boosting.py, compare_models.py, check_overfitting.py, final_test.py,
+  explain_defense.py, covid_analysis.py   runnable steps
 tests/                 unit tests, including leakage and split checks (run on GitHub on every push)
 results/               output tables and figures
 ```
