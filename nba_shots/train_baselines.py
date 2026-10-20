@@ -7,11 +7,11 @@ import os
 import pandas as pd
 
 from nba_shots import config
-from nba_shots.evaluate import calibration_table, fit_and_score, plot_calibration
+from nba_shots.evaluate import calibration_table, fit_and_score, plot_calibration, save_predictions
 from nba_shots.models import (predict_constant, predict_court_squares, predict_distance_only,
                               predict_distance_shape_zone, predict_logistic_all,
-                              predict_logistic_detailed, predict_logistic_families_only,
-                              predict_logistic_no_shot_type)
+                              predict_logistic_detailed, predict_logistic_no_shot_type,
+                              predict_logistic_with_flags)
 from nba_shots.splits import load_train_val
 
 COLUMNS = ["season", "game_key", "game_date", "made", "shot_distance", "is_three", "basic_zone",
@@ -23,17 +23,17 @@ MODELS = {
     "M1 distance only": predict_distance_only,
     "M2 distance shape + zone": predict_distance_shape_zone,
     "M3 court squares": predict_court_squares,
-    "M4 logistic, families + flags": predict_logistic_all,
-    "M4 families only": predict_logistic_families_only,
-    "M4 detailed shot descriptions": predict_logistic_detailed,
-    "M4 no shot type": predict_logistic_no_shot_type,
+    "M4 logistic, families": predict_logistic_all,
+    "M4 logistic, families + flags": predict_logistic_with_flags,
+    "M4 logistic, detailed shot descriptions": predict_logistic_detailed,
+    "M4 logistic, no shot type": predict_logistic_no_shot_type,
 }
 
 # models to also run on ALL training seasons (2003-04 on), as the comparison to the main setup
-ALL_SEASON_COMPARISONS = ["M2 distance shape + zone", "M4 logistic, families + flags"]
+ALL_SEASON_COMPARISONS = ["M2 distance shape + zone", "M4 logistic, families"]
 
 # models drawn on the calibration plot (a constant has nothing to calibrate)
-PLOT = ["M1 distance only", "M2 distance shape + zone", "M4 logistic, families + flags"]
+PLOT = ["M1 distance only", "M2 distance shape + zone", "M4 logistic, families"]
 
 
 def main():
@@ -41,14 +41,17 @@ def main():
 
     rows = []
     calibration = {}
+    predictions = {}
     for name, predict in MODELS.items():
-        p = fit_and_score(name, predict, train, val, "main", rows)
+        predictions[name] = fit_and_score(name, predict, train, val, "main", rows)
         if name in PLOT:
-            calibration[name] = calibration_table(val["made"], p)
+            calibration[name] = calibration_table(val["made"], predictions[name])
     for name in ALL_SEASON_COMPARISONS:
-        fit_and_score(name, MODELS[name], all_train, val, "all", rows)
+        predictions[name + " (all seasons)"] = fit_and_score(name, MODELS[name], all_train, val, "all", rows)
 
     pd.DataFrame(rows).to_csv(os.path.join(config.RESULTS_DIR, "baselines_val.csv"), index=False)
+    os.makedirs(config.PREDICTIONS_DIR, exist_ok=True)
+    save_predictions(val, predictions, os.path.join(config.PREDICTIONS_DIR, "baselines_val.parquet"))
     plot_calibration(calibration, os.path.join(config.RESULTS_DIR, "calibration_baselines_val.png"),
                      "Model ladder on validation (trained on 2012-13 to 2018-19)")
 

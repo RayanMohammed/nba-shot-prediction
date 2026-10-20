@@ -60,10 +60,10 @@ def predict_court_squares(train, val, size=config.BIN_SIZE_FT, k=config.SMOOTHIN
     return merged["rate"].fillna(overall).to_numpy()
 
 
-def predict_logistic_all(train, val, shot_type="family+flags"):
+def predict_logistic_all(train, val, shot_type="family"):
     """M4: logistic regression on every feature we have (the best a straight-line model can do).
 
-    shot_type is passed to all_features: "family+flags" (main), "family", "detailed" (raw shot
+    shot_type is passed to all_features: "family" (main), "family+flags", "detailed" (raw shot
     descriptions), or "none" (no shot type, the ablation: the description is written down after the shot).
     """
     if len(train) > config.LOGISTIC_MAX_ROWS:
@@ -75,9 +75,9 @@ def predict_logistic_all(train, val, shot_type="family+flags"):
     return model.predict_proba(X_val)[:, 1]
 
 
-def predict_logistic_families_only(train, val):
-    """M4 with the shot families but without the two extra flags (comparison)."""
-    return predict_logistic_all(train, val, shot_type="family")
+def predict_logistic_with_flags(train, val):
+    """M4 with the shot families plus the two extra flags (comparison)."""
+    return predict_logistic_all(train, val, shot_type="family+flags")
 
 
 def predict_logistic_detailed(train, val):
@@ -90,25 +90,44 @@ def predict_logistic_no_shot_type(train, val):
     return predict_logistic_all(train, val, shot_type="none")
 
 
-def fit_boosting(X, y, games):
-    """Gradient boosting, adding trees in steps until it stops helping on held-out TRAINING games.
+def pick_heldout_games(games, share, seed=0):
+    """True for every shot from a random `share` of the games (whole games, never single shots)."""
+    game_list = games.unique()
+    rng = np.random.default_rng(seed)
+    held_games = rng.choice(game_list, size=int(len(game_list) * share), replace=False)
+    return np.asarray(games.isin(held_games))
 
-    The held-out shots are whole games (not random shots), so shots from one game never sit on both
-    sides. Validation seasons are not used here at all, so they stay a fair test for comparing models.
+
+def stopping_set(train, how=config.BOOSTING_STOPPING):
+    """True for the training shots that referee "stop adding trees" (see config.BOOSTING_STOPPING)."""
+    # holding out "the last season" only makes sense if there's more than one season to train on
+    if how == "last_season" and train["season"].nunique() > 1:
+        return np.asarray(train["season"] == train["season"].max())
+    return pick_heldout_games(train["game_key"], config.BOOSTING_HELDOUT_GAMES)
+
+
+def new_boosting_model(max_iter=100, warm_start=False, min_leaf=config.BOOSTING_MIN_SHOTS_PER_LEAF,
+                       l2=config.BOOSTING_L2):
+    """The gradient boosting model with our settings (one place, so every script uses the same ones).
+    warm_start=True: each fit() keeps the trees it already has and adds more up to max_iter."""
+    return HistGradientBoostingClassifier(learning_rate=config.BOOSTING_LEARNING_RATE,
+                                          min_samples_leaf=min_leaf, l2_regularization=l2,
+                                          max_iter=max_iter, early_stopping=False,
+                                          warm_start=warm_start, random_state=0)
+
+
+def fit_boosting(X, y, held, min_leaf=config.BOOSTING_MIN_SHOTS_PER_LEAF, l2=config.BOOSTING_L2):
+    """Gradient boosting, adding trees in steps until it stops helping on the held-out training shots.
+
+    held: True for the training shots used as the referee (from stopping_set). They're whole games
+    or a whole season, never single shots. Validation seasons are not used here at all.
     Returns (fitted model on all training shots, number of trees chosen).
     """
     check_features(list(X.columns))
     X = X.to_numpy()  # a plain array: selecting rows from it below is cheaper than from a DataFrame
     y = np.asarray(y)
-    game_list = games.unique()
-    rng = np.random.default_rng(0)
-    held_games = rng.choice(game_list, size=int(len(game_list) * config.BOOSTING_HELDOUT_GAMES), replace=False)
-    held = np.asarray(games.isin(held_games))
 
-    # warm_start=True: each fit() keeps the trees it already has and adds more up to max_iter
-    model = HistGradientBoostingClassifier(learning_rate=config.BOOSTING_LEARNING_RATE,
-                                           min_samples_leaf=config.BOOSTING_MIN_SHOTS_PER_LEAF,
-                                           early_stopping=False, warm_start=True, random_state=0)
+    model = new_boosting_model(warm_start=True, min_leaf=min_leaf, l2=l2)
     best_loss = np.inf
     best_trees = config.BOOSTING_TREES_STEP
     for n_trees in range(config.BOOSTING_TREES_STEP, config.BOOSTING_MAX_TREES + 1, config.BOOSTING_TREES_STEP):
@@ -123,25 +142,27 @@ def fit_boosting(X, y, games):
             break  # adding trees stopped helping
 
     # refit from scratch on ALL training shots with the chosen number of trees
-    final = HistGradientBoostingClassifier(learning_rate=config.BOOSTING_LEARNING_RATE,
-                                           min_samples_leaf=config.BOOSTING_MIN_SHOTS_PER_LEAF,
-                                           max_iter=best_trees, early_stopping=False, random_state=0)
+    final = new_boosting_model(max_iter=best_trees, min_leaf=min_leaf, l2=l2)
     final.fit(X, y)
     return final, best_trees
 
 
-def predict_boosting(train, val, shot_type="family+flags"):
-    """M5: gradient boosting on the same features as M4, plus the raw court coordinates."""
+def predict_boosting(train, val, shot_type="family", stopping=config.BOOSTING_STOPPING,
+                     min_leaf=config.BOOSTING_MIN_SHOTS_PER_LEAF, l2=config.BOOSTING_L2,
+                     with_xy=config.BOOSTING_WITH_XY):
+    """M5: gradient boosting on the same features as M4 (plus, by default, the raw court coordinates).
+    The other arguments default to the settings in config.py; tune_boosting.py tries other values."""
     common = common_action_types(train)
-    X_train = all_features(train, common, shot_type, with_xy=True)
-    X_val = all_features(val, common, shot_type, with_xy=True).reindex(columns=X_train.columns, fill_value=0)
-    model, n_trees = fit_boosting(X_train, train["made"], train["game_key"])
+    X_train = all_features(train, common, shot_type, with_xy=with_xy)
+    X_val = all_features(val, common, shot_type, with_xy=with_xy).reindex(columns=X_train.columns, fill_value=0)
+    held = stopping_set(train, stopping)
+    model, n_trees = fit_boosting(X_train, train["made"], held, min_leaf, l2)
     print("    chosen trees:", n_trees)
     return model.predict_proba(X_val.to_numpy())[:, 1]  # array in, same as in training
 
 
-def predict_boosting_families_only(train, val):
-    return predict_boosting(train, val, shot_type="family")
+def predict_boosting_with_flags(train, val):
+    return predict_boosting(train, val, shot_type="family+flags")
 
 
 def predict_boosting_detailed(train, val):

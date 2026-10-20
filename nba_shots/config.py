@@ -67,13 +67,46 @@ SHOT_FAMILIES = [
     ("turnaround/fadeaway", ["Turnaround", "Fadeaway"]),
 ]
 
-# Extra shot details kept on top of the families (they carry most of what the detailed labels add):
+# Extra shot details, only used in the "family+flags" comparison. Not in the main model: checked Oct 15,
+# "Driving" went from 30% to 53% of layups between 2012-13 and 2022-23 and its effect flipped sign.
 # on_the_move = the description contains one of these words; alley_oop = it contains "Alley Oop"
 MOVING_WORDS = ["Driving", "Running", "Cutting"]
 
 # M5 gradient boosting (scikit-learn's HistGradientBoostingClassifier)
 BOOSTING_LEARNING_RATE = 0.1
-BOOSTING_MIN_SHOTS_PER_LEAF = 100   # every leaf must hold at least this many shots (keeps trees stable)
+BOOSTING_MIN_SHOTS_PER_LEAF = 1000  # every leaf must hold at least this many shots (was 100; tuned Oct 19)
 BOOSTING_TREES_STEP = 50            # add trees 50 at a time while checking the held-out games
 BOOSTING_MAX_TREES = 1000
 BOOSTING_HELDOUT_GAMES = 0.1        # share of TRAINING games held out to decide when to stop adding trees
+
+# Which training shots referee "stop adding trees":
+#   "random_games" -> a random 10% of training games (same seasons as the rest of training)
+#   "last_season"  -> every game of the latest training season (closer to predicting the future)
+BOOSTING_STOPPING = "last_season"   # chosen Oct 19 (tune_boosting.py); was "random_games"
+BOOSTING_L2 = 1.0                   # penalty on extreme leaf values (0 = none); was 0, tuned Oct 19
+BOOSTING_WITH_XY = False            # raw court coordinates: off since Oct 19. They helped on 2018-19 but not
+                                    # at all on 2021-23, i.e. they taught era-specific detail
+
+# Validation predictions saved by the training scripts (inside data/, so never uploaded)
+PREDICTIONS_DIR = "data/predictions"
+
+# The model everything else is built around (decided Oct 15, 2026)
+MAIN_MODEL = "M5 boosting, families"
+
+# M7 recalibration: learn the correction on the first validation season, check it on the second,
+# so the correction is never graded on the shots it learned from
+CALIBRATION_FIT_SEASON = "2021-22"
+CALIBRATION_CHECK_SEASON = "2022-23"
+
+# Bootstrap confidence intervals: how many times to resample the games
+N_BOOTSTRAP = 1000
+
+# check_overfitting.py: grow the boosting model this far (past where it normally stops) to see the full curve
+OVERFIT_CHECK_MAX_TREES = 600
+
+# Smooth calibrator (Platt + hinges): predicted probabilities where the correction curve may bend
+CALIBRATION_KNOTS = [0.35, 0.45, 0.55, 0.65]
+
+# The calibrator the final model uses (chosen Oct 19): "smooth" kept ~90% of its gain when learned from
+# only 10% of a season; isotonic's gain collapsed to ~0 there (calibration_overfit_checks.csv)
+CALIBRATION_METHOD = "smooth"

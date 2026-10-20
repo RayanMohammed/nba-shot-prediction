@@ -83,12 +83,12 @@ def shot_family(action_type):
     return "jumper"
 
 
-def all_features(df, common_actions, shot_type="family+flags", with_xy=False):
+def all_features(df, common_actions, shot_type="family", with_xy=False):
     """Inputs for M4: everything from M2, plus angle, side of the court, game clock, home/away,
     and the kind of shot.
 
-    shot_type: "family+flags" -> the 9 shot families + on_the_move + alley_oop (main model, and the app)
-               "family"       -> the 9 shot families only
+    shot_type: "family"       -> the 9 shot families (main model, and what the app will offer)
+               "family+flags" -> families + on_the_move + alley_oop (comparison: the flags drift over seasons)
                "detailed"     -> the raw shot descriptions (comparison)
                "none"         -> no shot type at all (ablation)
     with_xy: also include the raw court coordinates (useful for tree models, which can split on them)
